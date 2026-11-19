@@ -1,0 +1,34 @@
+.env
+.env.*
+!.env.example
+backups/
+
+# Local model weights are distributed separately.
+backend/model/*
+!backend/model/README.md
+*.pt
+*.pth
+*.onnx
+
+# Python and test caches
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Local-only build helper that references a machine-specific base image.
+backend/Dockerfile.local
+
+# Tunnel and certificate credentials
+.cloudflared/
+*.pem
+credentials.json
+*.key
+
+# Logs and temporary uploads
+*.log
+tmp/
+temp/

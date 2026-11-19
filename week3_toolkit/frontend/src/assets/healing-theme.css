@@ -9,6 +9,8 @@
 
 body {
   margin: 0;
+  width: 100%;
+  min-width: 0;
   min-height: 100vh;
   color: var(--text-main);
   font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
@@ -16,9 +18,13 @@ body {
   background: linear-gradient(120deg, #FFF3E0 0%, #FCE4EC 50%, #E0F7FA 100%);
   background-size: 200% 200%;
   animation: gradientFlow 15s ease infinite;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  display: block;
+}
+
+html,
+#app {
+  width: 100%;
+  min-width: 0;
 }
 
 @keyframes gradientFlow {

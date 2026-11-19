@@ -56,11 +56,13 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useMoodStore } from '../stores/mood'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
+import { api } from '../api/client'
 
 const moodStore = useMoodStore()
+const router = useRouter()
 const submitting = ref(false)
 
 const form = ref({
@@ -88,14 +90,14 @@ const commitDiary = async () => {
       healing_message: moodStore.healingMessage
     }
 
-    const res = await axios.post('http://localhost:8000/api/diary', payload)
+    const res = await api.post('/diary', payload)
     if (res.data.status === 'success') {
-      ElMessage.success('您的心流手账已被数字网络温柔加密保管。')
+      ElMessage.success('已安全保存到你的私人日记。')
       // 重置表单与总线
       form.value = { fact: '', thought: '', notes: '' }
       moodStore.resetEmotion()
       // 优雅跳转到时光长廊
-      moodStore.currentView = 'timeline'
+      await router.push('/timeline')
     }
   } catch {
     ElMessage.error('封存失败，时空隧道发生抖动。')

@@ -1,330 +1,132 @@
 <template>
-  <div class="app-container">
-    <FloatingBackground />
+  <FloatingBackground />
+
+  <div v-if="authStore.loading" class="session-loading">
+    <div class="loading-card">正在确认登录状态...</div>
+  </div>
+
+  <RouterView v-else-if="isPublicAuthRoute" />
+
+  <AuthPanel v-else-if="!authStore.user" />
+
+  <div v-else class="app-container">
+    <div class="session-bar">
+      <span>你好，{{ authStore.user.display_name }}</span>
+      <RouterLink
+        :to="`/u/${authStore.user.id}`"
+        class="settings-link"
+      >
+        我的主页
+      </RouterLink>
+      <RouterLink to="/settings" class="settings-link">
+        账号设置
+      </RouterLink>
+      <el-button text class="logout-button" @click="handleLogout">
+        退出登录
+      </el-button>
+    </div>
 
     <header class="header">
-      <h1>✨ 情绪感知日记</h1>
+      <h1>✦ 情绪感知日记</h1>
       <p class="subtitle">无论是哪种心情，都值得被温柔以待</p>
     </header>
 
     <main class="main-content">
-      <div class="main-nav">
-        <el-radio-group v-model="moodStore.currentView" size="large">
-          <el-radio-button label="capture">🧭 情绪感知</el-radio-button>
-          <el-radio-button label="timeline">⏳ 时光长廊</el-radio-button>
-          <el-radio-button label="therapy">🧘 呼吸疗愈</el-radio-button>
-        </el-radio-group>
-      </div>
+      <nav class="main-nav" aria-label="主要导航">
+        <RouterLink to="/" class="nav-link">
+          <span>◉</span>
+          情绪感知
+        </RouterLink>
+        <RouterLink to="/timeline" class="nav-link">
+          <span>◷</span>
+          时光长廊
+        </RouterLink>
+        <RouterLink to="/therapy" class="nav-link">
+          <span>♨</span>
+          呼吸疗愈
+        </RouterLink>
+        <RouterLink to="/space" class="nav-link">
+          <span>✦</span>
+          情绪空间
+        </RouterLink>
+        <RouterLink to="/chat" class="nav-link">
+          <span>◌</span>
+          情感陪伴
+        </RouterLink>
+      </nav>
 
-      <div v-if="moodStore.currentView === 'capture'" class="view-section">
-        <div class="healing-card interact-area">
-
-          <div class="mode-switcher">
-            <el-radio-group v-model="inputMode" @change="handleModeChange">
-              <el-radio-button label="upload">文件上传</el-radio-button>
-              <el-radio-button label="camera">实时摄像头</el-radio-button>
-            </el-radio-group>
+      <RouterView v-slot="{ Component }">
+        <Transition name="view-fade" mode="out-in">
+          <div :key="$route.fullPath" class="view-section">
+            <component :is="Component" />
           </div>
-
-          <div v-if="inputMode === 'camera'" class="preview-wrapper">
-            <div class="media-container">
-              <video ref="cameraVideoRef" autoplay playsinline muted class="preview-media"></video>
-              <canvas ref="cameraCanvasRef" class="overlay-canvas"></canvas>
-            </div>
-            <p class="live-tip">🎥 正在实时捕捉您的面部表情...</p>
-          </div>
-
-          <el-upload
-            v-if="inputMode === 'upload'"
-            class="emotion-uploader"
-            drag
-            action="#"
-            :auto-upload="false"
-            :on-change="handleFileChange"
-            :show-file-list="false"
-            accept="image/*,video/mp4,video/quicktime,video/webm"
-          >
-            <div v-if="fileUrl" class="preview-wrapper">
-              <img v-if="fileType === 'image'" :src="fileUrl" class="preview-media" alt="你的照片" />
-
-              <div v-else-if="fileType === 'video'" class="media-container">
-                <video
-                  ref="uploadVideoRef"
-                  :src="fileUrl"
-                  controls
-                  playsinline
-                  class="preview-media"
-                  @play="startVideoTracking"
-                  @pause="stopVideoTracking"
-                  @ended="stopVideoTracking"
-                ></video>
-                <canvas ref="uploadCanvasRef" class="overlay-canvas"></canvas>
-              </div>
-            </div>
-            <div v-else class="upload-placeholder">
-              <el-icon class="el-icon--upload"><Picture /></el-icon>
-              <div class="el-upload__text">
-                点击或拖拽上传照片/视频，<br/>让我感受你此刻的心情
-              </div>
-            </div>
-          </el-upload>
-
-          <div class="action-bar" v-if="inputMode === 'upload' && fileType === 'image'">
-            <el-button type="primary" size="large" @click="analyzeStaticImage" :loading="isAnalyzing">
-              {{ isAnalyzing ? '正在用心感受中...' : '开始解读照片' }}
-            </el-button>
-          </div>
-          <div class="action-bar" v-else-if="inputMode === 'upload' && fileType === 'video'">
-            <p class="live-tip">▶️ 点击播放视频，系统将自动进行追踪解读</p>
-          </div>
-        </div>
-
-        <div class="healing-card result-area" v-if="moodStore.activeEmotion">
-          <h2 class="emotion-title">当前感知到的情绪是...</h2>
-
-          <div class="emotion-display">
-            <span class="emoji">{{ moodStore.currentEmotionMeta.emoji }}</span>
-            <span class="emotion-name">{{ moodStore.currentEmotionMeta.label }}</span>
-          </div>
-
-          <div class="confidence-display" v-if="moodStore.confidence > 0">
-            模型确定度: {{ moodStore.confidence }}%
-          </div>
-
-          <p class="healing-message" v-if="showBigEmoji">{{ moodStore.healingMessage }}</p>
-        </div>
-
-        <JournalInputLayer v-if="moodStore.activeEmotion" />
-      </div>
-
-      <div v-else-if="moodStore.currentView === 'timeline'" class="view-section">
-        <MoodTimelineView />
-      </div>
-
-      <div v-else-if="moodStore.currentView === 'therapy'" class="view-section">
-        <CbtBreathingTherapy />
-      </div>
+        </Transition>
+      </RouterView>
     </main>
-
-    <EmotionEffects :emotion="showBigEmoji ? moodStore.activeEmotion : ''" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onBeforeUnmount } from 'vue'
-import { Picture } from '@element-plus/icons-vue'
-import axios from 'axios'
-import { useMoodStore } from './stores/mood' // 引入系统神经中枢
-
+import { computed, onMounted } from 'vue'
+import {
+  RouterLink,
+  RouterView,
+  useRoute,
+  useRouter,
+} from 'vue-router'
+import AuthPanel from './components/AuthPanel.vue'
 import FloatingBackground from './components/FloatingBackground.vue'
-import EmotionEffects from './components/EmotionEffects.vue'
-import JournalInputLayer from './components/JournalInputLayer.vue'
-import MoodTimelineView from './components/MoodTimelineView.vue'
-import CbtBreathingTherapy from './components/CbtBreathingTherapy.vue'
+import { useAuthStore } from './stores/auth'
+import { useMoodStore } from './stores/mood'
 
-// 初始化全局状态
+const authStore = useAuthStore()
 const moodStore = useMoodStore()
+const router = useRouter()
+const route = useRoute()
 
-// ================= 基础状态 =================
-const inputMode = ref<'upload' | 'camera'>('upload')
-const fileUrl = ref<string>('')
-const currentFile = ref<File | null>(null)
-const fileType = ref<'image' | 'video' | null>(null)
-const isAnalyzing = ref<boolean>(false)
+const isPublicAuthRoute = computed(
+  () =>
+    route.name === 'reset-password' ||
+    route.name === 'verify-email',
+)
 
-// DOM 引用
-const cameraVideoRef = ref<HTMLVideoElement | null>(null)
-const cameraCanvasRef = ref<HTMLCanvasElement | null>(null)
-const uploadVideoRef = ref<HTMLVideoElement | null>(null)
-const uploadCanvasRef = ref<HTMLCanvasElement | null>(null)
-
-// 追踪器状态
-let cameraStream: MediaStream | null = null
-let cameraInterval: number | null = null
-let videoInterval: number | null = null
-let isProcessingFrame = false
-
-// 核心计算属性：是否允许全屏大动画？
-const showBigEmoji = computed(() => {
-  return inputMode.value === 'upload' && fileType.value === 'image'
+onMounted(() => {
+  authStore.restoreSession()
 })
 
-// ================= 交互逻辑 =================
-const handleModeChange = (mode: string) => {
-  moodStore.resetEmotion() // 切换模式时清空状态
-  if (mode === 'camera') {
-    startCamera()
-  } else {
-    stopCamera()
-  }
+async function handleLogout() {
+  moodStore.resetEmotion()
+  await authStore.logout()
+  await router.push('/')
 }
-
-const handleFileChange = (file: any) => {
-  const rawFile = file.raw as File
-  if (fileUrl.value) URL.revokeObjectURL(fileUrl.value)
-
-  fileUrl.value = URL.createObjectURL(rawFile)
-  currentFile.value = rawFile
-  fileType.value = rawFile.type.startsWith('video/') ? 'video' : 'image'
-
-  moodStore.resetEmotion() // 换新文件时清空状态
-  stopVideoTracking()
-}
-
-// ================= 抽帧与画框核心逻辑 =================
-const processFrame = async (video: HTMLVideoElement, overlay: HTMLCanvasElement) => {
-  if (video.paused || video.ended || video.readyState !== 4 || isProcessingFrame) return
-  isProcessingFrame = true
-
-  if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
-    overlay.width = video.videoWidth
-    overlay.height = video.videoHeight
-  }
-
-  const offscreen = document.createElement('canvas')
-  offscreen.width = video.videoWidth
-  offscreen.height = video.videoHeight
-  const ctx = offscreen.getContext('2d')
-  if (!ctx) { isProcessingFrame = false; return }
-
-  ctx.drawImage(video, 0, 0, offscreen.width, offscreen.height)
-
-  offscreen.toBlob(async (blob) => {
-    if (!blob) { isProcessingFrame = false; return }
-    const formData = new FormData()
-    formData.append('file', blob, 'frame.jpg')
-
-    try {
-      const response = await axios.post('http://localhost:8000/api/analyze', formData)
-      const oCtx = overlay.getContext('2d')
-      if (!oCtx) return
-
-      oCtx.clearRect(0, 0, overlay.width, overlay.height)
-
-      if (response.data.status === 'success') {
-        const data = response.data.data
-        const box = data.face_box
-        const emo = data.emotion.toLowerCase()
-        const conf = data.confidence
-
-        // 同步给 Pinia 状态树
-        moodStore.setEmotion(emo, conf, data.message)
-
-        oCtx.strokeStyle = '#00E676'
-        oCtx.lineWidth = Math.max(3, overlay.width / 200)
-        oCtx.strokeRect(box.x1, box.y1, box.x2 - box.x1, box.y2 - box.y1)
-
-        // 动态读取字典里的 label
-        const labelText = `${moodStore.emotionDict[emo]?.label || emo} ${conf}%`
-        const fontSize = Math.max(16, overlay.width / 35)
-        oCtx.font = `bold ${fontSize}px sans-serif`
-
-        const padding = 6
-        const textWidth = oCtx.measureText(labelText).width
-        const textHeight = fontSize + 4
-
-        oCtx.fillStyle = '#00E676'
-        oCtx.fillRect(box.x1, box.y1 - textHeight - padding * 2, textWidth + padding * 2, textHeight + padding * 2)
-
-        oCtx.fillStyle = '#FFFFFF'
-        oCtx.textBaseline = 'top'
-        oCtx.fillText(labelText, box.x1 + padding, box.y1 - textHeight - padding)
-      }
-    } catch (error) {
-    } finally {
-      isProcessingFrame = false
-    }
-  }, 'image/jpeg', 0.8)
-}
-
-// ================= 摄像头控制 =================
-const startCamera = async () => {
-  try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 640, height: 480 }
-    })
-    if (cameraVideoRef.value) {
-      cameraVideoRef.value.srcObject = cameraStream
-      cameraVideoRef.value.play()
-
-      cameraInterval = window.setInterval(() => {
-        if (cameraVideoRef.value && cameraCanvasRef.value) {
-          processFrame(cameraVideoRef.value, cameraCanvasRef.value)
-        }
-      }, 500)
-    }
-  } catch (error) {
-    alert("无法调用摄像头，请检查浏览器权限哦~")
-    inputMode.value = 'upload'
-  }
-}
-
-const stopCamera = () => {
-  if (cameraStream) {
-    cameraStream.getTracks().forEach(track => track.stop())
-    cameraStream = null
-  }
-  if (cameraInterval) {
-    clearInterval(cameraInterval)
-    cameraInterval = null
-  }
-  if (cameraCanvasRef.value) {
-    cameraCanvasRef.value.getContext('2d')?.clearRect(0, 0, 9999, 9999)
-  }
-}
-
-// ================= 本地视频控制 =================
-const startVideoTracking = () => {
-  if (videoInterval) clearInterval(videoInterval)
-  videoInterval = window.setInterval(() => {
-    if (uploadVideoRef.value && uploadCanvasRef.value) {
-      processFrame(uploadVideoRef.value, uploadCanvasRef.value)
-    }
-  }, 500)
-}
-
-const stopVideoTracking = () => {
-  if (videoInterval) clearInterval(videoInterval)
-  videoInterval = null
-}
-
-// ================= 静态照片专属请求 =================
-const analyzeStaticImage = async () => {
-  if (!currentFile.value) return
-  isAnalyzing.value = true
-  moodStore.resetEmotion() // 请求前重置
-
-  const formData = new FormData()
-  formData.append('file', currentFile.value)
-
-  try {
-    const response = await axios.post('http://localhost:8000/api/analyze', formData)
-    if (response.data.status === 'success') {
-      let emo = response.data.data.emotion.toLowerCase()
-      // 同步给 Pinia 状态树
-      moodStore.setEmotion(emo, response.data.data.confidence, response.data.data.message)
-    } else {
-      alert(response.data.message)
-    }
-  } catch (error) {
-    alert("系统遇到了一点小麻烦，请稍后再试。")
-  } finally {
-    isAnalyzing.value = false
-  }
-}
-
-onBeforeUnmount(() => {
-  stopCamera()
-  stopVideoTracking()
-})
 </script>
 
 <style scoped>
-/* 原汁原味的居中与定宽设计 */
+.session-loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.loading-card {
+  padding: 18px 28px;
+  border-radius: 18px;
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 16px 40px rgba(120, 90, 80, 0.1);
+  backdrop-filter: blur(16px);
+}
+
 .app-container {
-  max-width: 800px;
+  width: min(1040px, 100%);
+  max-width: 100%;
+  min-width: 0;
+  min-height: 100vh;
   margin: 0 auto;
-  padding: 40px 20px;
+  padding: 28px 20px 48px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -332,80 +134,162 @@ onBeforeUnmount(() => {
   z-index: 1;
 }
 
-.header { text-align: center; margin-bottom: 40px; }
-.header h1 { font-size: 2.5rem; color: var(--text-main); margin-bottom: 10px; }
-.subtitle { color: var(--text-light); font-size: 1.1rem; }
-
-.main-content {
+.session-bar {
   width: 100%;
   display: flex;
-  flex-direction: column;
-  gap: 30px;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-light);
+  font-size: 14px;
 }
 
-/* 导航栏样式 */
-.main-nav {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 10px;
+.settings-link {
+  padding: 6px 10px;
+  border-radius: 10px;
+  color: var(--text-main);
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
 }
 
-/* 视图切换容器与动画 */
-.view-section {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 30px;
-  animation: fadeIn 0.5s ease-out;
-}
-
-.mode-switcher { margin-bottom: 15px; text-align: center; }
-
-/* 画布叠加核心样式 */
-.media-container {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  max-width: 100%;
-  margin: 0 auto;
-}
-
-.preview-media {
-  display: block;
-  max-width: 100%;
-  max-height: 450px;
-  width: auto;
-  height: auto;
+.logout-button {
+  color: var(--text-main) !important;
+  border: 1px solid rgba(130, 100, 90, 0.16) !important;
   border-radius: 12px;
 }
 
-.overlay-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
+.header {
+  margin: 16px 0 30px;
+  text-align: center;
 }
 
-.emotion-uploader { border-radius: var(--radius-large); overflow: hidden; }
-.upload-placeholder { display: flex; flex-direction: column; align-items: center; color: var(--text-light); }
-.preview-wrapper { width: 100%; display: flex; flex-direction: column; align-items: center; }
+.header h1 {
+  margin: 0 0 10px;
+  color: var(--text-main);
+  font-size: clamp(30px, 5vw, 42px);
+}
 
-.action-bar { margin-top: 25px; text-align: center; }
-.live-tip { margin-top: 15px; color: var(--text-light); font-size: 0.95rem; }
+.subtitle {
+  margin: 0;
+  color: var(--text-light);
+  font-size: 1.05rem;
+}
 
-.result-area { text-align: center; animation: fadeIn 0.8s ease-out; }
-.emotion-title { font-size: 1.2rem; color: var(--text-light); margin-bottom: 20px; }
-.emotion-display { display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 10px; }
-.emoji { font-size: 4rem; }
-.emotion-name { font-size: 2rem; font-weight: bold; color: var(--text-main); }
-.confidence-display { color: var(--text-light); margin-bottom: 20px; font-size: 0.95rem; background: rgba(255, 255, 255, 0.5); display: inline-block; padding: 4px 12px; border-radius: 12px; }
-.healing-message { font-size: 1.1rem; line-height: 1.6; color: var(--text-main); background-color: var(--bg-color); padding: 15px 25px; border-radius: 12px; display: inline-block; }
+.main-content {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+.main-nav {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 112px;
+  padding: 11px 15px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 14px;
+  color: #8d6e63;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: 0 7px 18px rgba(130, 100, 90, 0.05);
+  transition:
+    transform 0.2s ease,
+    color 0.2s ease,
+    background 0.2s ease;
+}
+
+.nav-link:hover {
+  color: #5d4037;
+  transform: translateY(-2px);
+}
+
+.nav-link.router-link-active {
+  color: #5d4037;
+  background: #ffffff;
+  border-color: rgba(248, 187, 208, 0.75);
+  box-shadow: 0 10px 24px rgba(180, 120, 130, 0.12);
+}
+
+.view-section {
+  width: 100%;
+}
+
+.view-fade-enter-active,
+.view-fade-leave-active {
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+.view-fade-enter-from,
+.view-fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+@media (max-width: 760px) {
+  .app-container {
+    padding: 20px 12px 36px;
+  }
+
+  .header {
+    margin: 20px 0 24px;
+  }
+
+  .session-bar {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 6px;
+  }
+
+  .session-bar > span {
+    margin-right: auto;
+  }
+
+  .header h1 {
+    font-size: 27px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+  }
+
+  .main-nav {
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    padding: 4px 2px 10px;
+    box-sizing: border-box;
+    scrollbar-width: none;
+  }
+
+  .main-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-link {
+    min-width: max-content;
+    padding: 10px 13px;
+    flex: 0 0 auto;
+    font-size: 14px;
+    scroll-snap-align: start;
+  }
 }
 </style>

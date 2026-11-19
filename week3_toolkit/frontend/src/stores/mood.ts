@@ -11,7 +11,6 @@ export interface EmotionMeta {
 
 export const useMoodStore = defineStore('mood', () => {
   // --- 状态定义 ---
-  const currentView = ref<'capture' | 'timeline' | 'therapy'>('capture') // 视图控制
   const activeEmotion = ref<string>('')
   const confidence = ref<number>(0)
   const healingMessage = ref<string>('')
@@ -52,7 +51,6 @@ export const useMoodStore = defineStore('mood', () => {
   }
 
   return {
-    currentView,
     activeEmotion,
     confidence,
     healingMessage,

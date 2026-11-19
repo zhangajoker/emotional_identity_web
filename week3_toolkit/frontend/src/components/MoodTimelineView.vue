@@ -55,7 +55,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useMoodStore } from '../stores/mood'
-import axios from 'axios'
+import { api } from '../api/client'
 
 const moodStore = useMoodStore()
 const list = ref<any[]>([])
@@ -63,7 +63,7 @@ const loading = ref(true)
 
 const fetchHistory = async () => {
   try {
-    const res = await axios.get('http://localhost:8000/api/diary/history')
+    const res = await api.get('/diary/history')
     if (res.data.status === 'success') {
       list.value = res.data.data
     }
